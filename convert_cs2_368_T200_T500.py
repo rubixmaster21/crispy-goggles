@@ -172,7 +172,7 @@ for i in range(60):
             t_img  = t_img0[:360,:359]
             t_img3D[0,4:364, 4:363] = (t_img - t_img.min())/(t_img.max() - t_img.min()) #Normalize the matrix into floating [0..1]
             #--- T200
-            t_img0 = T200[t,]  
+            t_img0 = T200[t,eval("ind"+section)]  
             t_img  = t_img0[:360,:359]
             t_img3D[1,4:364, 4:363] = (t_img - t_img.min())/(t_img.max() - t_img.min()) #Normalize the matrix into floating [0..1]
             #--- T500
