@@ -26,6 +26,7 @@ train_ds = tf.keras.utils.image_dataset_from_directory(
   data_dir,
   validation_split=0.2,
   subset="training",
+  color_mode='rgb',
   seed=123,
   image_size=(img_height, img_width),
   batch_size=batch_size,
@@ -35,6 +36,7 @@ val_ds = tf.keras.utils.image_dataset_from_directory(
   data_dir,
   validation_split=0.2,
   subset="validation",
+  color_mode='rgb',
   seed=123,
   image_size=(img_height, img_width),
   batch_size=batch_size,
@@ -46,33 +48,21 @@ val_ds = tf.keras.utils.image_dataset_from_directory(
 # val_ds = val_ds.reshape(-1, 784) / 255.0
 normalization_layer = tf.keras.layers.Rescaling(1./255)
 
-class_names = train_ds.class_names
-def get_label(file_path):
-  # Convert the path to a list of path components
-  parts = tf.strings.split(file_path, os.path.sep)
-  # The second to last is the class-directory
-  one_hot = parts[-2] == class_names
-  # Integer encode the label
-  return tf.argmax(one_hot)
-def decode_img(img):
-  # Convert the compressed string to a 3D uint8 tensor
-  img = tf.io.decode_jpeg(img, channels=3)
-  # Resize the image to the desired size
-  return tf.image.resize(img, [img_height, img_width])
-def process_path(file_path):
-  label = get_label(file_path)
-  # Load the raw data from the file as a string
-  img = tf.io.read_file(file_path)
-  img = decode_img(img)
-  return img, label
 
 AUTOTUNE = tf.data.AUTOTUNE
-train_ds = train_ds.map(process_path, num_parallel_calls=AUTOTUNE)
-val_ds = val_ds.map(process_path, num_parallel_calls=AUTOTUNE)
+train_ds = train_ds.cache().prefetch(buffer_size=AUTOTUNE)
+val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
+
+# train_ds = tf.data.Dataset.from_tensor_slices(
+#     tf.expand_dims(tf.concat([train_ds, val_ds], axis=0), axis=-1))
+
+# train_ds = train_ds.take(int(1e4)).batch(4).map(lambda x: (x/255, x/255))
+
+
 
 # Encoder definition
 encoder = Sequential([
-    Dense(128, activation='relu', input_shape=(784,)),
+    Dense(128, activation='relu', input_shape=(36,36,3,)),
     Dense(64, activation='relu')
 ])
 # We can compile the model here, otherwise there will be a warning when it is
@@ -80,8 +70,8 @@ encoder = Sequential([
 
 # Decoder definition
 decoder = Sequential([
-    Dense(128, activation='relu', input_shape=(64,)),
-    Dense(784, activation='sigmoid')
+    Dense(128, activation='relu', input_shape=(36,36,64,)),
+    Dense(1296, activation='sigmoid')
 ])
 # We can compile the model here, otherwise there will be a warning when it is
 # used, but it is optional.
@@ -94,7 +84,7 @@ autoencoder = Sequential([
 
 # Compile and train the autoencoder
 autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
-autoencoder.fit(train_ds, train_ds, epochs=10, batch_size=256)
+autoencoder.fit(train_ds, epochs=10, batch_size=256)
 
 # Evaluation
 loss = autoencoder.evaluate(val_ds, val_ds, verbose=0)
