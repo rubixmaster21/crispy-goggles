@@ -19,23 +19,23 @@ class Autoencoder(nn.Module):
         super(Autoencoder, self).__init__()
         # Encoder
         self.encoder = nn.Sequential(
-            nn.Linear(36 * 36, 128),
+            nn.Linear(36 * 36, 256),
             nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.Linear(256, 64),
             nn.ReLU(),
-            nn.Linear(64, 12),
-            nn.ReLU(),
-            nn.Linear(12, 3)  # bottleneck layer
+            nn.Linear(64, 32),
+            # nn.ReLU(),
+            # nn.Linear(12, 3)  # bottleneck layer
         )
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(3, 12),
+            # nn.Linear(3, 12),
+            # nn.ReLU(),
+            nn.Linear(32, 64),
             nn.ReLU(),
-            nn.Linear(12, 64),
+            nn.Linear(64, 256),
             nn.ReLU(),
-            nn.Linear(64, 128),
-            nn.ReLU(),
-            nn.Linear(128, 36 * 36),
+            nn.Linear(256, 36 * 36),
             nn.Sigmoid()  # Sigmoid activation to output values in [0, 1]
         )
         
@@ -82,7 +82,7 @@ loaded_array1d = np.zeros((36,36),np.float32)
 #         PROBLEM_INDICES.append(arr)
 
 for i in range(700):
-    loaded_array1d = np.fromfile('image_2D\\img2d_T500_'+str(i)+'.bin', dtype=np.float64)
+    loaded_array1d = np.fromfile('image_2D\\img2d_T500_'+str(i+1243)+'.bin', dtype=np.float64)
     #print("read from file image_2D\\img3d_T500_"+str(i)+'.bin')
     loaded_array1d = loaded_array1d.astype(np.float32)
     loaded_array = loaded_array1d.reshape(368,368)
@@ -106,8 +106,13 @@ for i in range(700):
             # Append the tile to the list
             input_data[100*i+10*ii+j] = tile
             
-                
+#input_data = np.random.rand(70000,36,36).astype(np.float32)
 
+print(np.max(input_data))
+print(np.min(input_data))
+
+
+input_data = (input_data - np.min(input_data)) / (np.max(input_data) - np.min(input_data))
 
 # Normalize to range [0, 1]
 #input_data = (input_data - np.min(input_data)) / (np.max(input_data)-np.min(input_data))
@@ -119,7 +124,7 @@ np.random.shuffle(data)
 # Transform to tensor and normalize further in range [-1, 1]
 transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])
+    #transforms.Normalize(mean=[0.5], std=[0.5])
 ])
 
 
@@ -137,8 +142,7 @@ optimizer = optim.Adam(autoencoder.parameters(), lr=1e-3)
 histactivations = []
 
 # Training loop
-num_epochs = 2
-#print("J!!!!!! MIXTILINAER! EXCIRCE!!!!")
+num_epochs = 20
 for epoch in range(num_epochs):
     for data in dataloader:
         inputs = data.view(data.size(0), -1)  # Flatten input data
@@ -149,14 +153,13 @@ for epoch in range(num_epochs):
         loss.backward()
         #nn.utils.clip_grad_norm_(autoencoder.parameters(), max_norm=1.0)
         optimizer.step()
-        print(loss.item())
 
     print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
     if epoch == 0:
         for layer_idx, activations in enumerate(autoencoder.neuron_activations):
-            print(f'Layer {layer_idx + 1} neuron activations:')
-            print(activations)
-            print()
+            #print(f'Layer {layer_idx + 1} neuron activations:')
+            #print(activations)
+            #print()
             histactivations.append(activations)
                 
 
@@ -164,7 +167,7 @@ print("Training complete!")
 
 # Evaluate the trained model (testing phase)
 test_data = input_data[60001:60001+100]
-np.random.shuffle(test_data)
+#np.random.shuffle(test_data)
 test_dataset = CustomDataset(test_data, transform=transform)
 test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
@@ -181,7 +184,12 @@ with torch.no_grad():
         
         # Here you could visualize or save the input/output images
         # For example, using matplotlib (not shown here)
-        plt.imshow(inputs_img[0].cpu().numpy(), cmap='gray')
-        plt.imshow(outputs_img[0].cpu().numpy(), cmap='gray')
+        for i in range(inputs_img.size(0)):
+           fig, axes = plt.subplots(1, 2)
+           axes[0].imshow(inputs_img[i].cpu().numpy(), cmap='gray')
+           axes[0].set_title('Input Image')
+           axes[1].imshow(outputs_img[i].cpu().numpy(), cmap='gray')
+           axes[1].set_title('Reconstructed Image')
+           plt.show()
 
 print("Evaluation complete!")
